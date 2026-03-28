@@ -6,6 +6,26 @@ interface SlidingWindowResult{
     resetAt: number
 }
 
+const slidingWindowLua = `
+    local key = KEYS[1]
+    local now = tonumber(ARGV[1])
+    local windowStart = tonumber(ARGV[2])
+    local limit = tonumber(ARGV[3])
+    local windowSize = tonumber(ARGV[4])
+
+    redis.call('ZREMRANGEBYSCORE', key, '-inf', windowStart)
+
+    local count = redis.call('ZCARD', key)
+
+    if count>=limit then
+        return {0, 0, now+(windowSize*1000)}
+    end
+
+    redis.call('ZADD', key, now, tostring(now))
+    redis.call('EXPIRE', key, windowSize)
+
+    return {1, limit-count-1, now+(windowSize*1000)}
+`;
 export async function slidingWindow(
     key: string,
     limit: number,
@@ -15,23 +35,19 @@ export async function slidingWindow(
     const now = Date.now();
     const windowStart = now - windowSizeInSeconds*1000;
 
-    const requests = await client.zRangeByScore(key,windowStart,now);
-    const requestCount = requests.length;
-
-    if(requestCount >= limit){
-        return {
-            allowed: false,
-            remaining: 0,
-            resetAt: now + windowSizeInSeconds*1000
-        };
-    }
-
-    await client.zAdd(key,{score:now, value: `${now}`});
-    await client.expire(key,windowSizeInSeconds);
+    const result = await client.eval(slidingWindowLua,{
+        keys: [key],
+        arguments: [
+            now.toString(),
+            windowStart.toString(),
+            limit.toString(),
+            windowSizeInSeconds.toString()
+        ]
+    }) as [number, number, number];
 
     return {
-        allowed: true,
-        remaining: limit-requestCount-1,
-        resetAt: now+windowSizeInSeconds*1000
+        allowed: result[0]===1,
+        remaining: result[1],
+        resetAt: result[2]
     };
 }
