@@ -1,5 +1,6 @@
 import express from "express"
 import client from "./config/redis";
+import rateLimiterRouter from "./routes/rateLimiter"
 
 const app = express();
 
@@ -13,5 +14,7 @@ app.get("/health",(req,res)=>{
         status:"ok"
     });
 });
+
+app.use("/api",rateLimiterRouter);
 
 export default app;
