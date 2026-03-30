@@ -13,10 +13,11 @@ export function rateLimitMiddleware(options: RateLimitOptions = {}){
         limit = 10,
         windowSize = 60,
         keyGenerator = (req:Request)=>{
-            return req.body?.userId || 
+            const indentifier = req.body?.userId || 
                    req.headers['x-user-id'] as string ||
                    req.ip ||
                    "anonymous";
+            return `${indentifier}:${req.path}`;
         }
     } = options;
 
