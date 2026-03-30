@@ -1,6 +1,7 @@
 import express from "express"
 import client from "./config/redis";
 import rateLimiterRouter from "./routes/rateLimiter"
+import { rateLimitMiddleware } from "./middleware/rateLimiter";
 
 const app = express();
 
@@ -16,5 +17,11 @@ app.get("/health",(req,res)=>{
 });
 
 app.use("/api",rateLimiterRouter);
+
+app.get("/protected", rateLimitMiddleware({limit: 3, windowSize: 30}), (req,res)=>{
+    res.json({
+        message: "You accessed a protected route!"
+    });
+});
 
 export default app;
