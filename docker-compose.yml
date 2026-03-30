@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  app1:
+    build: .
+    ports:
+      - "3001:3000"
+    environment:
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+      - INSTANCE_ID=instance-1
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  app2:
+    build: .
+    ports:
+      - "3002:3000"
+    environment:
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+      - INSTANCE_ID=instance-2
+    depends_on:
+      redis:
+        condition: service_healthy
