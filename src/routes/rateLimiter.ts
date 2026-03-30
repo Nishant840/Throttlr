@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { slidingWindow } from "../algorithms/slidingWindow";
 import { tokenBucket } from "../algorithms/tokenBucket";
+import { isRedisHealthy } from "../config/redis";
 
 const router = Router();
 
@@ -10,6 +11,17 @@ router.post("/check", async (req: Request,res: Response)=>{
     if(!userId){
         res.status(400).json({
             error: "UserId is required"
+        });
+        return;
+    }
+
+    if(!isRedisHealthy){
+        console.warn("Redis unavailable - failing open for user:", userId);
+        res.json({
+            allowed: true,
+            remaining: -1,
+            resetAt: -1,
+            warning: "Rate limiter unavailable - request allowed"
         });
         return;
     }
@@ -50,6 +62,17 @@ router.post("/check-bucket",async (req:Request, res:Response) => {
         return;
     }
 
+    if(!isRedisHealthy){
+        console.warn("Redis unavailable - failing open for user:", userId);
+        res.json({
+            allowed: true,
+            remaining: -1,
+            resetAt: -1,
+            warning: "Rate limiter unavailable - request allowed"
+        });
+        return;
+    }
+    
     const key = `tokenbucket:${userId}`;
 
     const result = await tokenBucket(key, capacity, refillRate);
