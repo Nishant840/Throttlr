@@ -327,12 +327,54 @@
   </div>
 
   <script>
-    const stats = {
-      total: 0,
-      allowed: 0,
-      blocked: 0,
-      users: {}
-    };
+    async function fetchStats() {
+      try {
+        const res = await fetch('/api/stats');
+        const data = await res.json();
+
+        document.getElementById('total').textContent = data.total;
+        document.getElementById('allowed-count').textContent = data.allowed;
+        document.getElementById('blocked-count').textContent = data.blocked;
+        document.getElementById('active-users').textContent = data.activeUsers;
+
+        const tbody = document.getElementById('user-table');
+
+        if (data.users.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="6" style="text-align:center;color:#888;padding:24px">
+                No requests yet — send one above
+              </td>
+            </tr>`;
+          return;
+        }
+
+        tbody.innerHTML = '';
+        data.users.forEach(s => {
+          const pct = Math.min(100, Math.round((s.blocked / (s.total || 1)) * 100));
+          const color = s.blocked > 0 ? '#f87171' : '#4ade80';
+          const statusClass = s.blocked > 0 ? 'blocked' : 'ok';
+          const statusText = s.blocked > 0 ? 'Blocked' : 'OK';
+
+          tbody.innerHTML += `
+            <tr>
+              <td style="font-family:monospace">${s.userId}</td>
+              <td>${s.total}</td>
+              <td style="color:#4ade80">${s.allowed}</td>
+              <td style="color:#f87171">${s.blocked}</td>
+              <td>
+                <span class="bar-bg">
+                  <span class="bar-fill" style="width:${pct}%;background:${color}"></span>
+                </span>
+              </td>
+              <td><span class="status ${statusClass}">${statusText}</span></td>
+            </tr>
+          `;
+        });
+      } catch (err) {
+        console.error('Failed to fetch stats:', err);
+      }
+    }
 
     async function sendRequest() {
       const userId = document.getElementById('userId').value;
@@ -347,24 +389,9 @@
         });
 
         const data = await res.json();
-        const isAllowed = data.allowed;
-
-        stats.total++;
-        if (isAllowed) stats.allowed++;
-        else stats.blocked++;
-
-        if (!stats.users[userId]) {
-          stats.users[userId] = { total: 0, allowed: 0, blocked: 0, limit };
-        }
-        stats.users[userId].total++;
-        if (isAllowed) stats.users[userId].allowed++;
-        else stats.users[userId].blocked++;
-
-        updateMetrics();
-        updateTable();
-        addLog(userId, isAllowed, data.remaining, data.retryAfter);
-        showResult(isAllowed, data);
-
+        showResult(data.allowed, data);
+        addLog(userId, data.allowed, data.remaining, data.retryAfter);
+        await fetchStats();
       } catch (err) {
         console.error(err);
       }
@@ -377,46 +404,8 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId })
       });
-      if (stats.users[userId]) {
-        delete stats.users[userId];
-        updateMetrics();
-        updateTable();
-        addLog(userId, null, null, null, true);
-      }
-    }
-
-    function updateMetrics() {
-      document.getElementById('total').textContent = stats.total;
-      document.getElementById('allowed-count').textContent = stats.allowed;
-      document.getElementById('blocked-count').textContent = stats.blocked;
-      document.getElementById('active-users').textContent = Object.keys(stats.users).length;
-    }
-
-    function updateTable() {
-      const tbody = document.getElementById('user-table');
-      tbody.innerHTML = '';
-
-      Object.entries(stats.users).forEach(([userId, s]) => {
-        const pct = Math.min(100, Math.round((s.total / s.limit) * 100));
-        const color = pct >= 100 ? '#f87171' : pct >= 80 ? '#fbbf24' : '#4ade80';
-        const statusClass = pct >= 100 ? 'blocked' : pct >= 80 ? 'warn' : 'ok';
-        const statusText = pct >= 100 ? 'Blocked' : pct >= 80 ? 'Near limit' : 'OK';
-
-        tbody.innerHTML += `
-          <tr>
-            <td style="font-family:monospace">${userId}</td>
-            <td>${s.total}</td>
-            <td style="color:#4ade80">${s.allowed}</td>
-            <td style="color:#f87171">${s.blocked}</td>
-            <td>
-              <span class="bar-bg">
-                <span class="bar-fill" style="width:${pct}%;background:${color}"></span>
-              </span>
-            </td>
-            <td><span class="status ${statusClass}">${statusText}</span></td>
-          </tr>
-        `;
-      });
+      addLog(userId, null, null, null, true);
+      await fetchStats();
     }
 
     function addLog(userId, allowed, remaining, retryAfter, isReset = false) {
@@ -440,6 +429,9 @@
       el.className = `result ${allowed ? 'allowed' : 'blocked'}`;
       el.textContent = JSON.stringify(data, null, 2);
     }
+
+    fetchStats();
+    setInterval(fetchStats, 3000);
   </script>
 
 </body>

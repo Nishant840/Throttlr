@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { slidingWindow } from "../algorithms/slidingWindow";
 import { tokenBucket } from "../algorithms/tokenBucket";
 import client, { isRedisHealthy } from "../config/redis";
+import { getStats, incrementStats, resetUserStats } from "../config/stats";
 
 const router = Router();
 
@@ -29,6 +30,8 @@ router.post("/check", async (req: Request,res: Response)=>{
     const key = `ratelimit:${userId}`;
 
     const result = await slidingWindow(key,limit,windowSize);
+
+    await incrementStats(userId, result.allowed);
 
     res.set({
         "X-RateLimit-Limit": limit,
@@ -77,6 +80,8 @@ router.post("/check-bucket",async (req:Request, res:Response) => {
 
     const result = await tokenBucket(key, capacity, refillRate);
 
+    await incrementStats(userId, result.allowed);
+
     res.set({
         'X-RateLimit-Limit': capacity,
         'X-RateLimit-Remaining': result.remaining,
@@ -111,10 +116,30 @@ router.post("/reset", async (req:Request, res:Response)=>{
 
     await client.del(`ratelimit:${userId}`);
 
+    await resetUserStats(userId);
+
     res.json({
         success: true,
         message: `Reset rate limit for ${userId}`
     });
+});
+
+router.get("/stats", async (req:Request, res:Response)=>{
+    if(!isRedisHealthy){
+        res.json({
+            total: 0,
+            allowed: 0,
+            blocked: 0,
+            activeUsers: 0,
+            users: [],
+            warning: "Redis unavailable"
+        });
+        return;
+    }
+
+    const stats = await getStats();
+
+    res.json(stats);
 });
 
 export default router;
