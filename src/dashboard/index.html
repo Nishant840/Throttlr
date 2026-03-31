@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Throttlr Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f0f;
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 32px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+    }
+
+    header h1 {
+      font-size: 24px;
+      font-weight: 600;
+      color: #ffffff;
+    }
+
+    header h1 span {
+      color: #6366f1;
+    }
+
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #4ade80;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #4ade80;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .metric-card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .metric-card .label {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+
+    .metric-card .value {
+      font-size: 32px;
+      font-weight: 600;
+      color: #ffffff;
+    }
+
+    .metric-card .value.green { color: #4ade80; }
+    .metric-card .value.red { color: #f87171; }
+    .metric-card .value.purple { color: #a78bfa; }
+
+    .section-title {
+      font-size: 15px;
+      font-weight: 500;
+      color: #ffffff;
+      margin-bottom: 16px;
+    }
+
+    .table-wrap {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 32px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead th {
+      padding: 12px 16px;
+      text-align: left;
+      color: #888;
+      font-weight: 500;
+      border-bottom: 1px solid #2a2a2a;
+      background: #141414;
+    }
+
+    tbody td {
+      padding: 12px 16px;
+      border-bottom: 1px solid #1f1f1f;
+      color: #e0e0e0;
+    }
+
+    tbody tr:last-child td { border-bottom: none; }
+
+    tbody tr:hover { background: #1f1f1f; }
+
+    .bar-bg {
+      background: #2a2a2a;
+      border-radius: 4px;
+      height: 6px;
+      width: 120px;
+      display: inline-block;
+      vertical-align: middle;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+
+    .status {
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-weight: 500;
+    }
+
+    .status.ok { background: #14532d; color: #4ade80; }
+    .status.warn { background: #713f12; color: #fbbf24; }
+    .status.blocked { background: #7f1d1d; color: #f87171; }
+
+    .test-section {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 32px;
+    }
+
+    .test-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group label {
+      font-size: 12px;
+      color: #888;
+    }
+
+    .form-group input {
+      background: #0f0f0f;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: #e0e0e0;
+      font-size: 13px;
+      width: 140px;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #6366f1;
+    }
+
+    button {
+      background: #6366f1;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 20px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover { background: #4f46e5; }
+    button.secondary {
+      background: #2a2a2a;
+      color: #e0e0e0;
+    }
+    button.secondary:hover { background: #333; }
+
+    .result {
+      font-size: 13px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-family: monospace;
+    }
+
+    .result.allowed { background: #14532d; color: #4ade80; }
+    .result.blocked { background: #7f1d1d; color: #f87171; }
+    .result.hidden { display: none; }
+
+    .instance-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #1e1b4b;
+      color: #a78bfa;
+      font-family: monospace;
+    }
+
+    #log {
+      background: #0f0f0f;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      padding: 12px;
+      font-family: monospace;
+      font-size: 12px;
+      height: 160px;
+      overflow-y: auto;
+      color: #888;
+    }
+
+    .log-entry { margin-bottom: 4px; }
+    .log-entry.ok { color: #4ade80; }
+    .log-entry.blocked { color: #f87171; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1><span>Throttlr</span> Dashboard</h1>
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      Live
+    </div>
+  </header>
+
+  <div class="metrics">
+    <div class="metric-card">
+      <div class="label">Total requests</div>
+      <div class="value purple" id="total">0</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Allowed</div>
+      <div class="value green" id="allowed-count">0</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Blocked (429)</div>
+      <div class="value red" id="blocked-count">0</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Active users</div>
+      <div class="value" id="active-users">0</div>
+    </div>
+  </div>
+
+  <p class="section-title">Test rate limiter</p>
+  <div class="test-section">
+    <div class="test-row">
+      <div class="form-group">
+        <label>User ID</label>
+        <input type="text" id="userId" value="user_123" />
+      </div>
+      <div class="form-group">
+        <label>Limit</label>
+        <input type="number" id="limit" value="5" />
+      </div>
+      <div class="form-group">
+        <label>Window (seconds)</label>
+        <input type="number" id="windowSize" value="60" />
+      </div>
+      <button onclick="sendRequest()">Send request</button>
+      <button class="secondary" onclick="resetUser()">Reset user</button>
+    </div>
+    <div class="result hidden" id="result"></div>
+  </div>
+
+  <p class="section-title">Live request log</p>
+  <div id="log"></div>
+
+  <br/>
+
+  <p class="section-title">Per user stats</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>User ID</th>
+          <th>Total requests</th>
+          <th>Allowed</th>
+          <th>Blocked</th>
+          <th>Usage</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="user-table">
+        <tr>
+          <td colspan="6" style="text-align:center;color:#888;padding:24px">
+            No requests yet — send one above
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    const stats = {
+      total: 0,
+      allowed: 0,
+      blocked: 0,
+      users: {}
+    };
+
+    async function sendRequest() {
+      const userId = document.getElementById('userId').value;
+      const limit = parseInt(document.getElementById('limit').value);
+      const windowSize = parseInt(document.getElementById('windowSize').value);
+
+      try {
+        const res = await fetch('/api/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, limit, windowSize })
+        });
+
+        const data = await res.json();
+        const isAllowed = data.allowed;
+
+        stats.total++;
+        if (isAllowed) stats.allowed++;
+        else stats.blocked++;
+
+        if (!stats.users[userId]) {
+          stats.users[userId] = { total: 0, allowed: 0, blocked: 0, limit };
+        }
+        stats.users[userId].total++;
+        if (isAllowed) stats.users[userId].allowed++;
+        else stats.users[userId].blocked++;
+
+        updateMetrics();
+        updateTable();
+        addLog(userId, isAllowed, data.remaining, data.retryAfter);
+        showResult(isAllowed, data);
+
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function resetUser() {
+      const userId = document.getElementById('userId').value;
+      await fetch('/api/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      if (stats.users[userId]) {
+        delete stats.users[userId];
+        updateMetrics();
+        updateTable();
+        addLog(userId, null, null, null, true);
+      }
+    }
+
+    function updateMetrics() {
+      document.getElementById('total').textContent = stats.total;
+      document.getElementById('allowed-count').textContent = stats.allowed;
+      document.getElementById('blocked-count').textContent = stats.blocked;
+      document.getElementById('active-users').textContent = Object.keys(stats.users).length;
+    }
+
+    function updateTable() {
+      const tbody = document.getElementById('user-table');
+      tbody.innerHTML = '';
+
+      Object.entries(stats.users).forEach(([userId, s]) => {
+        const pct = Math.min(100, Math.round((s.total / s.limit) * 100));
+        const color = pct >= 100 ? '#f87171' : pct >= 80 ? '#fbbf24' : '#4ade80';
+        const statusClass = pct >= 100 ? 'blocked' : pct >= 80 ? 'warn' : 'ok';
+        const statusText = pct >= 100 ? 'Blocked' : pct >= 80 ? 'Near limit' : 'OK';
+
+        tbody.innerHTML += `
+          <tr>
+            <td style="font-family:monospace">${userId}</td>
+            <td>${s.total}</td>
+            <td style="color:#4ade80">${s.allowed}</td>
+            <td style="color:#f87171">${s.blocked}</td>
+            <td>
+              <span class="bar-bg">
+                <span class="bar-fill" style="width:${pct}%;background:${color}"></span>
+              </span>
+            </td>
+            <td><span class="status ${statusClass}">${statusText}</span></td>
+          </tr>
+        `;
+      });
+    }
+
+    function addLog(userId, allowed, remaining, retryAfter, isReset = false) {
+      const log = document.getElementById('log');
+      const time = new Date().toLocaleTimeString();
+      let entry = '';
+
+      if (isReset) {
+        entry = `<div class="log-entry">[${time}] RESET ${userId}</div>`;
+      } else if (allowed) {
+        entry = `<div class="log-entry ok">[${time}] ALLOWED ${userId} — ${remaining} remaining</div>`;
+      } else {
+        entry = `<div class="log-entry blocked">[${time}] BLOCKED ${userId} — retry in ${retryAfter}s</div>`;
+      }
+
+      log.innerHTML = entry + log.innerHTML;
+    }
+
+    function showResult(allowed, data) {
+      const el = document.getElementById('result');
+      el.className = `result ${allowed ? 'allowed' : 'blocked'}`;
+      el.textContent = JSON.stringify(data, null, 2);
+    }
+  </script>
+
+</body>
+</html>

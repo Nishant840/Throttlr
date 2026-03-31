@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { slidingWindow } from "../algorithms/slidingWindow";
 import { tokenBucket } from "../algorithms/tokenBucket";
-import { isRedisHealthy } from "../config/redis";
+import client, { isRedisHealthy } from "../config/redis";
 
 const router = Router();
 
@@ -98,4 +98,23 @@ router.post("/check-bucket",async (req:Request, res:Response) => {
         resetAt: result.resetAt
     });
 })
+
+router.post("/reset", async (req:Request, res:Response)=>{
+    const {userId} = req.body;
+
+    if(!userId){
+        res.status(400).json({
+            error: "userId is required"
+        });
+        return;
+    }
+
+    await client.del(`ratelimit:${userId}`);
+
+    res.json({
+        success: true,
+        message: `Reset rate limit for ${userId}`
+    });
+});
+
 export default router;
