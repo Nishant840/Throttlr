@@ -9,7 +9,7 @@ export const options = {
     ],
 };
 
-const BASE_URL = "http://localhost:3000";
+const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
 
 export default function(){
     const userId = `user_${Math.floor(Math.random()*10)}`;
