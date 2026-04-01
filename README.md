@@ -8,58 +8,31 @@ A production-grade **distributed rate limiting service** built with Node.js, Typ
 
 ## System Design
 
-```
-                      ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-                      ┃       Client / Users       ┃
-                      ┗━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┛
-                                    ┃
-             ┏━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━┓
-             ┃                                             ┃
-             ▼                                             ▼
-      ┏━━━━━━━━━━━━━━┓                              ┏━━━━━━━━━━━━━━┓
-      ┃  Instance 1  ┃                              ┃  Instance 2  ┃
-      ┃ (Stateless)  ┃                              ┃ (Stateless)  ┃
-      ┣━━━━━━━━━━━━━━┫                              ┣━━━━━━━━━━━━━━┫
-      ┃ Rate Limiter ┃                              ┃ Rate Limiter ┃
-      ┃  Middleware  ┃                              ┃  Middleware  ┃
-      ┗━━━━━━┳━━━━━━━┛                              ┗━━━━━━┳━━━━━━━┛
-             ┃                                             ┃
-             ┗━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┛
-                                    ┃
-                                    ▼
-                      ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-                      ┃           Redis            ┃
-                      ┃  (Single Source of Truth)  ┃
-                      ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
-                      ┃ Sliding Window → ZSET      ┃
-                      ┃ Token Bucket   → HASH      ┃
-                      ┃ Stats          → INCR      ┃
-                      ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
-                      ┃ Lua Scripts (Atomic)       ┃
-                      ┃ read + check + update      ┃
-                      ┗━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┛
-                                    ┃
-                                    ▼
-                      ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-                      ┃      Decision Engine       ┃
-                      ┃     tokens available?      ┃
-                      ┗━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┛
-                             ┏━━━━━━┻━━━━━━┓
-                            YES            NO
-                             ┃             ┃
-                             ▼             ▼
-                      ┏━━━━━━━━━━━━┓ ┏━━━━━━━━━━━━┓
-                      ┃   200 OK   ┃ ┃    429     ┃
-                      ┃ + Headers  ┃ ┃ + Headers  ┃
-                      ┗━━━━━━┳━━━━━┛ ┗━━━━━━┳━━━━━┛
-                             ┃              ┃
-                             ┗━━━━━━┳━━━━━━━┛
-                                    ┃
-                                    ▼
-                      ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-                      ┃     Response to Client     ┃
-                      ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+```mermaid
+graph TD
 
+    Client[Client Users] --> I1[Instance 1 Stateless]
+    Client --> I2[Instance 2 Stateless]
+
+    I1 --> RL1[Rate Limiter Middleware]
+    I2 --> RL2[Rate Limiter Middleware]
+
+    RL1 --> Redis[Redis Single Source of Truth]
+    RL2 --> Redis
+
+    Redis --> SW[Sliding Window ZSET]
+    Redis --> TB[Token Bucket HASH]
+    Redis --> STATS[Stats INCR SADD]
+
+    Redis --> LUA[Lua Scripts Atomic]
+
+    LUA --> DECISION{Tokens Available}
+
+    DECISION -->|YES| OK[200 OK RateLimit Headers]
+    DECISION -->|NO| BLOCK[429 Too Many Requests]
+
+    OK --> RESPONSE[Response to Client]
+    BLOCK --> RESPONSE
 ```
 
 ### How it works
