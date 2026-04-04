@@ -468,5 +468,5 @@ curl -X POST https://throttlr-production.up.railway.app/api/check \
 ## 🧑‍💻 Author
 
 Nishant Kumar  
-B.Tech Computer Science  
+B.Tech Computer Science and Engineering   
 Indian Institute of Information Technology (IIIT) Bhopal
